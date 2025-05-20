@@ -26,7 +26,7 @@ function genererLabyrinthe(largeur, hauteur) {
     }
   
     function explorer(x, y) {
-      dejaVisite[y][x] = true;
+      dejaVisite[y][x] = lineariteAleatoire();
       const grilleX = x * 2 + 1;
       const grilleY = y * 2 + 1;
       labyrinthe[grilleY][grilleX] = 0;
@@ -49,6 +49,10 @@ function genererLabyrinthe(largeur, hauteur) {
     explorer(departX, departY);
   
     return labyrinthe;
+  }
+
+  function lineariteAleatoire() {
+    return Math.random() < 0.5
   }
   
   function labyrintheEnASCII(labyrinthe) {
