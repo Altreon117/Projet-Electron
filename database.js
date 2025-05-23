@@ -9,22 +9,21 @@ let database = new sqlite3.Database("./database.sqlite", (err) => {
   }
 });
 
-//  Création des tables
+//  Création de la table utilisateurs
+//  (id, nom, prenom, email, password, admin, labyrinths, connecte)
 database.serialize(() => {
-  database.run(`
-    CREATE TABLE IF NOT EXISTS utilisateurs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nom TEXT NOT NULL,
-      prenom TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      admin BOOLEAN DEFAULT 0,
-      labyrinths TEXT,
-      connecte BOOLEAN DEFAULT 0
-    )
-  `);
-  
+     database.run(`
+         CREATE TABLE IF NOT EXISTS utilisateurs (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             nom TEXT NOT NULL,
+             prenom TEXT NOT NULL,
+             email TEXT UNIQUE NOT NULL,
+             password TEXT NOT NULL,
+             admin BOOLEAN DEFAULT 0,
+             labyrinths TEXT,
+             connecte BOOLEAN DEFAULT 0
+         )
+     `);
 });
 
 module.exports = database;
-

@@ -11,53 +11,61 @@ function getUtilisateurs(callback) {
     });
 }
 
-//Fonction pour récupérer les admins
-function getAdmins(callback) {
-    const sql = "SELECT * FROM admins";
+//Fonction pour récupérer les admins parmi les utilisateurs (les user qui ont le champ admin à 1)
+function getUtilisateursAdmins(callback) {
+    const sql = `SELECT * FROM utilisateurs WHERE admin = 1`;
+  
     database.all(sql, [], (err, rows) => {
-        if (err) {
-            return callback(err, null);
-        }
-        callback(null, { admins: rows });
+      if (err) return callback(err, null);
+      callback(null, { admins: rows });
     });
-}
+  }
 
-//Fonction pour récupérer les événements
-function getEvenements(callback) {
-    const sql = "SELECT * FROM evenements";
+//Fonction pour récupérer seulement les utilisateurs non admins
+function getUtilisateursNonAdmins(callback) {
+    const sql = `SELECT * FROM utilisateurs WHERE admin = 0`;
     database.all(sql, [], (err, rows) => {
-        if (err) {
-            return callback(err, null);
-        }
-        callback(null, { evenements: rows });
+        if (err) return callback(err, null);
+        callback(null, { utilisateurs: rows });
     });
 }
-
-function getInscriptions(callback) {
-    const sql = `
-        SELECT inscriptions.id, utilisateurs.nom AS utilisateur, evenements.titre AS evenement
-        FROM inscriptions
-        JOIN utilisateurs ON inscriptions.utilisateur_id = utilisateurs.id
-        JOIN evenements ON inscriptions.evenement_id = evenements.id
-    `;
-    database.all(sql, [], (err, rows) => {
-        if (err) {
-            return callback(err, null);
-        }
-        callback(null, { inscriptions: rows });
-    });
-}
+  
 
 //Ajouter un utilisateur à la base de données (signin) (passe connecte à 1)
 function addUtilisateur(nom, prenom, email, password, callback) {
-    // Insérer l'utilisateur avec "connecte" à 1
-    const sql = `INSERT INTO utilisateurs (nom, prenom, email, password, connecte) VALUES (?, ?, ?, ?, 1)`;
-    database.run(sql, [nom, prenom, email, password], function (err) {
+    // Vérifier si l'utilisateur existe déjà
+    const sqlCheck = `SELECT * FROM utilisateurs WHERE email = ?`;
+    database.get(sqlCheck, [email], (err, rows) => {
         if (err) return callback(err, null);
-        
-        // Retourner l'utilisateur créé avec "connecte = 1"
-        callback(null, { id: this.lastID, nom, prenom, email, connecte: 1 });
-        console.log("Utilisateur créé et connecté avec succès !");
+        if (rows) {
+            return callback(new Error("Cet utilisateur existe déjà"), null);
+        }
+
+        // Si l'utilisateur n'existe pas, on l'ajoute
+        const sqlInsert = `INSERT INTO utilisateurs (nom, prenom, email, password, admin, connecte) VALUES (?, ?, ?, ?, 0, 1)`;
+        database.run(sqlInsert, [nom, prenom, email, password], function (err) {
+            if (err) return callback(err, null);
+            console.log("Utilisateur créé et connecté avec succès !");
+        });
+    });
+}
+
+
+//Ajouter un admin à la base de données (signin) (passe connecte à 1)
+function addAdmin(nom, prenom, email, password, callback) {
+    // Vérifier si l'admin existe déjà
+    const sqlCheck = `SELECT * FROM utilisateurs WHERE email = ?`;
+    database.get(sqlCheck, [email], (err, rows) => {
+        if (err) return callback(err, null);
+        if (rows) {
+            return callback(new Error("Cet admin existe déjà"), null);
+        }
+        // Si l'admin n'existe pas, on l'ajoute
+        const sqlInsert = `INSERT INTO utilisateurs (nom, prenom, email, password, admin, connecte) VALUES (?, ?, ?, ?, 1, 1)`;
+        database.run(sqlInsert, [nom, prenom, email, password], function (err) {
+            if (err) return callback(err, null);
+            console.log("Admin créé et connecté avec succès !");
+        });
     });
 }
 
@@ -70,6 +78,16 @@ function deleteUtilisateur(id, callback) {
     });
 }
 
+
+// Vider la table des utilisateurs
+function videUtilisateurs(callback) {
+    const sql = `DELETE FROM utilisateurs`;
+    database.run(sql, [], function (err) {
+        if (err) return callback(err);
+        callback(null, "Table 'utilisateurs' vidée avec succès.");
+    });
+}
+
 //modifier un uitilisateur donc connecte
 function updateUtilisateur(id, nom, prenom, email, password, callback) {
     const sql = `UPDATE utilisateurs SET nom = ?, prenom = ?, email = ?, password = ?, connecte = 0 WHERE id = ?`;
@@ -79,42 +97,6 @@ function updateUtilisateur(id, nom, prenom, email, password, callback) {
     });
 }
 
-//Ajouter un administrateur
-function addAdmin(nom, prenom, email, password, callback) {
-    const sql = `INSERT INTO admins (nom, prenom, email, password) VALUES (?, ?, ?, ?)`;
-    database.run(sql, [nom, prenom, email, password], function (err) {
-        if (err) return callback(err, null);
-        callback(null, { id: this.lastID, nom, prenom, email });
-    });
-}
-
-//Supprimer un administrateur
-function deleteAdmin(id, callback) {
-    const sql = `DELETE FROM admins WHERE id = ?`;
-    database.run(sql, [id], function (err) {
-        if (err) return callback(err, null);
-        callback(null, { id });
-    });
-}
-
-//Modifier un administrateur
-function updateAdmin(id, nom, prenom, email, password, callback) {
-    const sql = `UPDATE admins SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?`;
-    database.run(sql, [nom, prenom, email, password, id], function (err) {
-        if (err) return callback(err, null);
-        callback(null, { id, nom, prenom, email });
-    });
-}
-
-
-//Inscrire un utilisateur à un événement
-function addInscription(utilisateur_id, evenement_id, callback) {
-    const sql = `INSERT INTO inscriptions (utilisateur_id, evenement_id) VALUES (?, ?)`;
-    database.run(sql, [utilisateur_id, evenement_id], function (err) {
-        if (err) return callback(err, null);
-        callback(null, { id: this.lastID, utilisateur_id, evenement_id });
-    });
-}
 
 //Vérifier les identifiants de connexion et met l'utilisateur ou l'admin en ligne (attribut connecte = 1)
 const bcrypt = require("bcrypt");       // import bcrypt pour hacher les mots de passe
@@ -162,46 +144,65 @@ function checkLogin(email, password, callback) {
 
 
 
-//Déconnexion de l'utilisateur ou de l'admin
-function logout(userId, role, callback) {
-    const table = role === "admin" ? "admins" : "utilisateurs";
-    database.run(`UPDATE ${table} SET connecte = 0 WHERE id = ?`, [userId], function (err) {
+//Déconnexion de l'utilisateur
+function logout(Id, callback) {
+    const sqlUser = `UPDATE utilisateurs SET connecte = 0 WHERE id = ?`;
+    database.run(sqlUser, [Id], function (err) {
+        if (err) {
+            return callback(err, null)}
+        const sqlAdmin = `UPDATE admins SET connecte = 0 WHERE id = ?`;
+        database.run(sqlAdmin, [Id], function (err) {
+            if (err) return callback(err, null);
+            callback(null, "Déconnexion réussie");
+        });
+    });
+    }
+
+
+//Ajoute un labyrinthe à la liste de labyrinths d'un utilisateur
+function addLabyrinthe(userId, schema, callback) {
+    const sqlSelect = `SELECT labyrinths FROM utilisateurs WHERE id = ?`;
+
+    database.get(sqlSelect, [userId], (err, row) => {
         if (err) return callback(err);
-        callback(null, "Déconnexion réussie !");
+
+        let labyrinths = [];
+        if (row && row.labyrinths) {
+            try {
+                labyrinths = JSON.parse(row.labyrinths);
+            } catch (parseErr) {
+                return callback(parseErr);
+            }
+        }
+
+        // Supprimer le plus ancien si on atteint 50
+        if (labyrinths.length >= 50) {
+            labyrinths.shift(); // supprime le premier labyrinthe (le plus vieux)
+        }
+
+        // Ajouter le nouveau labyrinthe
+        labyrinths.push({ id: 0, schema }); // ID temporaire, sera réindexé ensuite
+
+        // Réindexer les ID (1 à N)
+        labyrinths = labyrinths.map((laby, index) => ({
+            id: index + 1,
+            schema: laby.schema,
+        }));
+
+        const sqlUpdate = `UPDATE utilisateurs SET labyrinths = ? WHERE id = ?`;
+        database.run(sqlUpdate, [JSON.stringify(labyrinths), userId], function (err) {
+            if (err) return callback(err);
+            callback(null, labyrinths);
+        });
     });
 }
 
-// Vider la table des utilisateurs
-function videUtilisateurs(callback) {
-    const sql = `DELETE FROM utilisateurs`;
-    database.run(sql, [], function (err) {
-        if (err) return callback(err);
-        callback(null, "Table 'utilisateurs' vidée avec succès.");
-    });
-}
-
-// Vider la table des admins
-function videAdmins(callback) {
-    const sql = `DELETE FROM admins`;
-    database.run(sql, [], function (err) {
-        if (err) return callback(err);
-        callback(null, "Table 'admins' vidée avec succès.");
-    });
-}
-
-//Ajoute un labyrinthe à la liste de labyrinths d'un utilisateur ou un admin
-function addLabyrinthe(id, labyrinth, callback) {
-    const sql = `UPDATE ${table} SET labyrinths = ? WHERE id = ?`;
-    database.run(sql, [labyrinth, id], function (err) {
-        if (err) return callback(err);
-        callback(null, { id, labyrinth });
-    });
-}
+    
 
 
-//Supprimer un labyrinthe de la liste de labyrinths d'un utilisateur ou un admin
-function deleteLabyrinthe(id, labyrinth, callback) {
-    const sql = `UPDATE ${table} SET labyrinths = ? WHERE id = ?`;
+//Supprimer un labyrinthe de la liste de labyrinths d'un utilisateur
+function deleteLabyrinthe(id, posi_labyrinth, callback) {
+    const sql = `UPDATE utilisateurs SET labyrinths = ? WHERE id = ?`;
     database.run(sql, [labyrinth, id], function (err) {
         if (err) return callback(err);
         callback(null, { id, labyrinth });
@@ -209,20 +210,68 @@ function deleteLabyrinthe(id, labyrinth, callback) {
 }
 
 //renvoie les labyrinthes d'un utilisateur ou d'un admin
-function getLabyrinths(id, role, callback) {
-    const table = role === "admin" ? "admins" : "utilisateurs";
-    const sql = `SELECT labyrinths FROM ${table} WHERE id = ?`;
-    database.get(sql, [id], function (err, row) {
+function getLabyrinths(id, callback) {
+    const sql = `SELECT labyrinths FROM utilisateurs WHERE id = ?`;
+    database.get(sql, [id], (err, row) => {
         if (err) return callback(err);
-        callback(null, { labyrinths: row.labyrinths });
+        if (row) {
+            return callback(null, { labyrinths: row.labyrinths });
+        } else {
+            const sqlAdmin = `SELECT labyrinths FROM admins WHERE id = ?`;
+            database.get(sqlAdmin, [id], (err, row) => {
+                if (err) return callback(err);
+                if (row) {
+                    return callback(null, { labyrinths: row.labyrinths });
+                } else {
+                    return callback(new Error("Aucun labyrinthe trouvé"), null);
+                }
+            });
+        }
+    });
+}
+
+//dit si c'est un dmin ou non
+function checkRole(id, callback) {
+    const sqlAdmin = "SELECT * FROM admins WHERE id = ?";
+    database.get(sqlAdmin, [id], (err, adminRow) => {
+        if (err) {
+            return callback(err, null);
+        }
+        if (adminRow) {
+            return "admin";
+        } else {
+            const sqlUser = "SELECT * FROM utilisateurs WHERE id = ?";
+            database.get(sqlUser, [id], (err, userRow) => {
+                if (err) {
+                    return callback(err, null);
+                }
+                if (userRow) {
+                    return "utilisateur";
+                } else {
+                    return null; // Aucun compte trouvé
+                }
+            });
+        }
     });
 }
 
 
+
 //Exporter la fonction
 module.exports = {
-    logout ,checkLogin,
-    getUtilisateurs, getAdmins, getEvenements, getInscriptions,
-    addUtilisateur, addAdmin, addInscription, deleteUtilisateur, deleteAdmin, updateUtilisateur, updateAdmin, videUtilisateurs, videAdmins, addLabyrinthe, deleteLabyrinthe, getLabyrinths
-};
+    getUtilisateurs,
+    getUtilisateursAdmins,
+    getUtilisateursNonAdmins,
+    addUtilisateur,
+    addAdmin,
+    deleteUtilisateur,
+    videUtilisateurs,
+    updateUtilisateur,
+    checkLogin,
+    logout,
+    addLabyrinthe,
+    deleteLabyrinthe,
+    getLabyrinths,
+    checkRole
+}
 
